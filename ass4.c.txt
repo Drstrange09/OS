@@ -1,0 +1,118 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define NUM_READERS 3
+#define NUM_WRITERS 2
+#define ITERATIONS 3
+
+// Shared data and synchronization variables
+int shared_data = 0;
+pthread_mutex_t mutex, write_mutex;
+int reader_count = 0;
+
+// Unsynchronized functions
+void* reader_unsync(void* arg) {
+    int id = (intptr_t)arg;
+    for (int i = 0; i < ITERATIONS; i++) {
+        printf("Reader %d reads: %d\n", id, shared_data);
+        usleep(rand() % 50000);
+    }
+    return NULL;
+}
+
+void* writer_unsync(void* arg) {
+    int id = (intptr_t)arg;
+    for (int i = 0; i < ITERATIONS; i++) {
+        shared_data++;
+        printf("Writer %d writes: %d\n", id, shared_data);
+        usleep(rand() % 100000);
+    }
+    return NULL;
+}
+
+// Synchronized functions
+void* reader_sync(void* arg) {
+    int id = (intptr_t)arg;
+    for (int i = 0; i < ITERATIONS; i++) {
+        // Entry section
+        pthread_mutex_lock(&mutex);
+        reader_count++;
+        if (reader_count == 1)
+            pthread_mutex_lock(&write_mutex);
+        pthread_mutex_unlock(&mutex);
+        
+        // Critical section
+        printf("Reader %d reads: %d\n", id, shared_data);
+        usleep(rand() % 50000);
+        
+        // Exit section
+        pthread_mutex_lock(&mutex);
+        reader_count--;
+        if (reader_count == 0)
+            pthread_mutex_unlock(&write_mutex);
+        pthread_mutex_unlock(&mutex);
+        
+        usleep(rand() % 30000);
+    }
+    return NULL;
+}
+
+void* writer_sync(void* arg) {
+    int id = (intptr_t)arg;
+    for (int i = 0; i < ITERATIONS; i++) {
+        pthread_mutex_lock(&write_mutex);
+        
+        shared_data++;
+        printf("Writer %d writes: %d\n", id, shared_data);
+        usleep(rand() % 100000);
+        
+        pthread_mutex_unlock(&write_mutex);
+        usleep(rand() % 50000);
+    }
+    return NULL;
+}
+
+// Run demonstration with given reader/writer functions
+void run_demo(const char* title, void* (*reader_func)(void*), void* (*writer_func)(void*)) {
+    pthread_t readers[NUM_READERS], writers[NUM_WRITERS];
+    
+    printf("\n======= %s =======\n", title);
+    shared_data = 0;
+    
+    // Create threads
+    for (int i = 0; i < NUM_READERS; i++)
+        pthread_create(&readers[i], NULL, reader_func, (void*)(intptr_t)i);
+    for (int i = 0; i < NUM_WRITERS; i++)
+        pthread_create(&writers[i], NULL, writer_func, (void*)(intptr_t)i);
+    
+    // Join threads
+    for (int i = 0; i < NUM_READERS; i++)
+        pthread_join(readers[i], NULL);
+    for (int i = 0; i < NUM_WRITERS; i++)
+        pthread_join(writers[i], NULL);
+}
+
+
+int main() {
+    // Seed random number generator
+    srand(time(NULL));
+    
+    // Run without synchronization
+    run_demo("WITHOUT SYNCHRONIZATION", reader_unsync, writer_unsync);
+    
+    // Initialize mutexes for synchronized version
+    pthread_mutex_init(&mutex, NULL);
+    pthread_mutex_init(&write_mutex, NULL);
+    
+    // Run with synchronization
+    run_demo("WITH SYNCHRONIZATION", reader_sync, writer_sync);
+    
+    // Clean up
+    pthread_mutex_destroy(&mutex);
+    pthread_mutex_destroy(&write_mutex);
+    
+    return 0;
+}
