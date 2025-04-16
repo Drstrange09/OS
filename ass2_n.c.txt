@@ -1,0 +1,197 @@
+#include <stdio.h>
+#include <limits.h>
+
+struct Process {
+    int id;
+    int arrival_time;
+    int burst_time;
+    int priority;
+    int completion_time;
+    int turnaround_time;
+    int waiting_time;
+    int remaining_time;
+};
+
+// Gantt Chart (without consecutive repeats)
+void printGanttChart(int timeline[], int count) {
+    printf("\nGantt Chart:\n|");
+    int prev = -1;
+    for (int i = 0; i < count; i++) {
+        if (timeline[i] != prev) {
+            printf(" P%d |", timeline[i]);
+            prev = timeline[i];
+        }
+    }
+    printf("\n");
+}
+
+// Process Table and Averages
+void printTable(struct Process p[], int n) {
+    int total_waiting = 0, total_turnaround = 0;
+    printf("\n%-5s %-8s %-8s %-12s %-10s %-12s\n", "ID", "Arrival", "Burst", "Completion", "Waiting", "Turnaround");
+    for (int i = 0; i < n; i++) {
+        printf("%-5d %-8d %-8d %-12d %-10d %-12d\n",
+               p[i].id, p[i].arrival_time, p[i].burst_time,
+               p[i].completion_time, p[i].waiting_time, p[i].turnaround_time);
+        total_waiting += p[i].waiting_time;
+        total_turnaround += p[i].turnaround_time;
+    }
+    printf("\nAverage Waiting Time: %.2f\n", (float)total_waiting / n);
+    printf("Average Turnaround Time: %.2f\n", (float)total_turnaround / n);
+}
+
+// FCFS Scheduling
+void FCFS(struct Process p[], int n) {
+    int time = 0, timeline[100], count = 0;
+    for (int i = 0; i < n; i++) {
+        if (time < p[i].arrival_time)
+            time = p[i].arrival_time;
+        timeline[count++] = p[i].id;
+        p[i].completion_time = time + p[i].burst_time;
+        p[i].turnaround_time = p[i].completion_time - p[i].arrival_time;
+        p[i].waiting_time = p[i].turnaround_time - p[i].burst_time;
+        time = p[i].completion_time;
+    }
+    printf("\nFCFS Scheduling:\n");
+    printTable(p, n);
+    printGanttChart(timeline, count);
+}
+
+// SJF (Non-Preemptive)
+void SJF(struct Process p[], int n) {
+    int completed = 0, time = 0, timeline[100], count = 0;
+    while (completed < n) {
+        int idx = -1, min_bt = INT_MAX;
+        for (int i = 0; i < n; i++) {
+            if (p[i].arrival_time <= time && p[i].completion_time == 0 && p[i].burst_time < min_bt) {
+                min_bt = p[i].burst_time;
+                idx = i;
+            }
+        }
+        
+        if (idx == -1) {
+            time++;
+        } else {
+            timeline[count++] = p[idx].id;
+            time += p[idx].burst_time;
+            p[idx].completion_time = time;
+            p[idx].turnaround_time = p[idx].completion_time - p[idx].arrival_time;
+            p[idx].waiting_time = p[idx].turnaround_time - p[idx].burst_time;
+            completed++;
+        }
+    }
+    printf("\nSJF Scheduling (Non-Preemptive):\n");
+    printTable(p, n);
+    printGanttChart(timeline, count);
+}
+
+// Round Robin
+void RoundRobin(struct Process p[], int n, int quantum) {
+    int time = 0, remaining = n, timeline[100], count = 0;
+    for (int i = 0; i < n; i++)
+        p[i].remaining_time = p[i].burst_time;
+
+    while (remaining > 0) {
+        for (int i = 0; i < n; i++) {
+            if (p[i].arrival_time <= time && p[i].remaining_time > 0) {
+
+
+                if (count == 0 || timeline[count - 1] != p[i].id)
+                    timeline[count++] = p[i].id;
+
+                int run = (p[i].remaining_time > quantum) ? quantum : p[i].remaining_time;
+                p[i].remaining_time -= run;
+                time += run;
+
+                if (p[i].remaining_time == 0) {
+                    p[i].completion_time = time;
+                    p[i].turnaround_time = time - p[i].arrival_time;
+                    p[i].waiting_time = p[i].turnaround_time - p[i].burst_time;
+                    remaining--;
+                }
+            }
+            
+            else if (p[i].arrival_time > time) {
+                time++;
+            }
+        }
+    }
+
+    printf("\nRound Robin Scheduling (Quantum = %d):\n", quantum);
+    printTable(p, n);
+    printGanttChart(timeline, count);
+}
+
+// Priority Scheduling (Non-Preemptive)
+void PriorityScheduling(struct Process p[], int n) {
+    int completed = 0, time = 0, timeline[100], count = 0;
+    while (completed < n) {
+        int idx = -1, high = INT_MAX;
+        for (int i = 0; i < n; i++) {
+            if (p[i].arrival_time <= time && p[i].completion_time == 0 && p[i].priority < high) {
+                high = p[i].priority;
+                idx = i;
+            }
+        }
+        if (idx == -1) {
+            time++;
+        } else {
+            timeline[count++] = p[idx].id;
+            time += p[idx].burst_time;
+            p[idx].completion_time = time;
+            p[idx].turnaround_time = p[idx].completion_time - p[idx].arrival_time;
+            p[idx].waiting_time = p[idx].turnaround_time - p[idx].burst_time;
+            completed++;
+        }
+    }
+    
+    printf("\nPriority Scheduling (Non-Preemptive):\n");
+    printTable(p, n);
+    printGanttChart(timeline, count);
+}
+
+// Main menu
+int main() {
+    int n, choice, quantum;
+    while (1) {
+        printf("\nChoose Scheduling Algorithm:\n");
+        printf("1. FCFS\n2. SJF (Non-Preemptive)\n3. Round Robin\n4. Priority Scheduling (Non-Preemptive)\n5. Exit\n");
+        scanf("%d", &choice);
+        if (choice == 5) break;
+
+        printf("Enter number of processes: ");
+        scanf("%d", &n);
+        struct Process p[n];
+        for (int i = 0; i < n; i++) {
+            printf("\nEnter Process ID: ");
+            scanf("%d", &p[i].id);
+            printf("Enter Arrival Time: ");
+            scanf("%d", &p[i].arrival_time);
+            printf("Enter Burst Time: ");
+            scanf("%d", &p[i].burst_time);
+            if (choice == 4) {
+                printf("Enter Priority (Lower number = higher priority): ");
+                scanf("%d", &p[i].priority);
+            }
+            p[i].completion_time = 0;
+            p[i].turnaround_time = 0;
+            p[i].waiting_time = 0;
+            p[i].remaining_time = 0;
+        }
+
+        if (choice == 3) {
+            printf("Enter Time Quantum: ");
+            scanf("%d", &quantum);
+        }
+
+        switch (choice) {
+            case 1: FCFS(p, n); break;
+            case 2: SJF(p, n); break;
+            case 3: RoundRobin(p, n, quantum); break;
+            case 4: PriorityScheduling(p, n); break;
+            default: printf("Invalid choice!\n");
+        }
+    }
+
+    return 0;
+}
