@@ -1,0 +1,98 @@
+#include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+
+int main() {
+    int pid;
+    int ppid;
+    int fork_var;
+ 
+    int ch;
+
+    pid = getpid();
+    ppid = getppid();
+    printf("You are in a Parent Process\n");
+    printf("The PID of this process is %d\n", pid);
+    printf("The PID of parent process is %d\n", ppid);
+
+    do {
+        printf("\nYou are welcome!!!\nChoose any one option:\n1. GREP Command\n2. CP Command\n3. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &ch);
+
+        switch(ch) {
+            case 1: {
+                fork_var = fork();
+                if (fork_var == 0) {
+                    // Child Process
+                    printf("You are in a child process.\n");
+                    pid = getpid();
+                    ppid = getppid();
+                    printf("The PID of child process is %d\n", pid);
+                    printf("The PID of parent process is %d\n", ppid);
+                    char pat[100]; // Increased buffer size for the pattern
+                    char fl[100];  // Increased buffer size for file name
+                    printf("Enter a file name: ");
+                    scanf("%s", fl);
+                    printf("Enter a pattern: ");
+                    scanf("%s", pat);
+                    printf("Running GREP command with highlighted results:\n");
+
+                    // Execute grep command with color highlighting
+                    execlp("grep", "grep", "--color=always", pat, fl, NULL);
+                    perror("execlp failed");
+                    exit(1);
+                } else if (fork_var > 0) {
+                    // Parent Process
+                    wait(NULL);
+                } else {
+                    perror("Fork failed");
+                }
+                break;
+            }
+            case 2: {
+                fork_var = fork();
+                if (fork_var == 0) {
+                    // Child Process
+                    printf("You are in a child process.\n");
+                    pid = getpid();
+                    ppid = getppid();
+                    printf("The PID of child process is %d\n", pid);
+                    printf("The PID of parent process is %d\n", ppid);
+                    char fl1[100];  // Increased buffer size for source file
+                    char fl2[100];  // Increased buffer size for destination file
+                    printf("Enter a source file name: ");
+                    scanf("%s", fl1);
+                    printf("Enter a destination file name: ");
+                    scanf("%s", fl2);
+                    printf("Running CP command:\n");
+
+                    // Correct the file path of the CP executable if needed
+                    execlp("cp", "cp", fl1, fl2, NULL);
+                    perror("execlp failed");
+                    exit(1);
+                } else if (fork_var > 0) {
+                    // Parent Process
+                    wait(NULL);
+                } else {
+                    perror("Fork failed");
+                }
+                break;
+            }
+            case 3: {
+                printf("Thank you!!!\n");
+                exit(0);
+            }
+            default: {
+                printf("You entered wrong option!!! Please try again.\n");
+                break;
+            }
+        }
+    } while(ch != 3);
+
+    return 0;
+}
